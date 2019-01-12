@@ -1,3 +1,6 @@
 .vs
 Debug
 Release
+*.sln
+*.vcxproj*
+out.txt

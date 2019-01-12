@@ -1,88 +1,76 @@
 #include <bits/stdc++.h>
+#include <unordered_map>
 #include <array>
 
 using namespace std;
 
 struct Config
 {
-	array<uint8_t, 300> config;
-	uint16_t sum;
-
-	Config() : sum(0)
+	struct BitRef
 	{
-		for (uint8_t &c : config)
-			c = 0;
-	}
+		uint64_t &u;
+		const uint64_t b;
 
-	uint8_t &operator [] (int index)
-	{
-		return config[index];
-	}
+		BitRef(Config &config, int index) : u(config.config[index / 64]), b(uint64_t(1) << (index % 64))
+		{}
 
-	void print() const
-	{
-		for (uint8_t c : config)
+		void operator = (bool value)
 		{
-			if (c)
-			{
-				for (int i = 0; i < c; i++)
-					cout << 'I';
-				cout << '_';
-			}
+			if (value)
+				u = u | b;
+			else
+				u = u & ~b;
 		}
-		cout << endl;
-	}
 
-	bool valid() const
-	{
-		return sum == computeSum()
-			&& config[0] == 0;
-	}
-
-	void validate() const
-	{
-		assert(valid());
-	}
-
-	uint16_t computeSum() const
-	{
-		uint16_t sum = 0;
-		uint16_t l = 0;
-		for (uint8_t c : config)
+		operator bool () const
 		{
-			sum += c * l;
-			l++;
+			return (u & b) != 0;
 		}
-		return sum;
-	}
 
-	void optimize()
-	{
+		void flip()
 		{
-			// even segments of length 1 do not change winning status
-			//uint8_t &c = config[1];
-			//int s = c / 2 * 2;
-			//c -= s;
-			//sum -= s;
-			for (int i = 0; i < 300; i++)
-				config[i] %= 2;
-			sum = computeSum();
+			u = u ^ b;
 		}
-		validate();
+	};
+
+	array<uint64_t, 5> config;
+
+	Config()
+	{
+		for (int i = 0; i < 5; i++)
+			config[i] = 0;
 	}
 
-	bool operator < (const Config &other) const
+	BitRef operator [] (int index)
 	{
-		validate();
-		other.validate();
-		if (sum < other.sum)
-			return true;
-		if (other.sum < sum)
-			return false;
-		assert(sum == other.sum);
-		return memcmp(config.data(), other.config.data(), config.size()) < 0;
+		return BitRef(*this, index);
+	}
+
+	void flip(int index)
+	{
+		(*this)[index].flip();
+	}
+
+	bool operator == (const Config &other) const
+	{
+		for (int i = 0; i < 5; i++)
+			if (config[i] != other.config[i])
+				return false;
+		return true;
 	}
 };
+
+namespace std
+{
+	template<> struct hash<Config>
+	{
+		std::size_t operator()(const Config &c) const noexcept
+		{
+			std::hash<uint64_t> h;
+			return h(c.config[0]) ^ (h(c.config[1]) << 1) ^ (h(c.config[2]) << 2) ^ (h(c.config[3]) << 3) ^ (h(c.config[4]) << 4);
+		}
+	};
+}
 
 struct Cache
 {
@@ -105,13 +93,11 @@ struct Cache
 	}
 
 private:
-	map<Config, bool> data;
+	std::unordered_map<Config, bool> data;
 } cache;
 
 bool winning(Config config)
 {
-	config.optimize();
-
 	// check cache
 	{
 		bool valid, result;
@@ -121,19 +107,18 @@ bool winning(Config config)
 	}
 
 	// check trivial winning conditions
-	if (config.sum < 3)
+	if (config.config[1] == 0 && config.config[2] == 0 && config.config[3] == 0 && config[4] == 0)
 	{
-		if (config.sum == 0)
-			return cache.set(config, false); // ""
-		if (config.sum == 1)
-			return cache.set(config, true); // "I"
-		if (config[2] == 1)
-			return cache.set(config, true); // "II"
-		return cache.set(config, false); // "I_I"
+		switch (config.config[0])
+		{
+		case 0: return cache.set(config, false); // ""
+		case 1: return cache.set(config, true); // "I"
+		case 2: return cache.set(config, true); // "II"
+		}
 	}
 
 	// recurse
-	for (uint16_t segment = 1; segment < config.config.size(); segment++)
+	for (int segment = 1; segment < 300; segment++)
 	{
 		if (!config[segment])
 			continue;
@@ -141,11 +126,10 @@ bool winning(Config config)
 		for (int i = 0; i < segment / 2 + 1; i++)
 		{
 			Config c(config);
-			c[segment]--;
-			c[segment - i - 1]++;
-			c[i]++;
-			c[0] = 0;
-			c.sum--;
+			c[segment].flip();
+			c[segment - i - 1].flip();
+			c[i].flip();
+			c[0] = false;
 			if (!winning(c))
 				return cache.set(config, true);
 		}
@@ -155,11 +139,10 @@ bool winning(Config config)
 			for (int i = 0; i < segment / 2; i++)
 			{
 				Config c(config);
-				c[segment]--;
-				c[segment - i - 2]++;
-				c[i]++;
-				c[0] = 0;
-				c.sum -= 2;
+				c[segment].flip();
+				c[segment - i - 2].flip();
+				c[i].flip();
+				c[0] = false;
 				if (!winning(c))
 					return cache.set(config, true);
 			}
@@ -173,7 +156,7 @@ bool winning(Config config)
 string isWinning(int, string config)
 {
 	Config cc;
-	uint8_t last = 0;
+	int last = 0;
 	for (char c : config)
 	{
 		if (c == 'I')
@@ -181,13 +164,12 @@ string isWinning(int, string config)
 		else
 		{
 			if (last)
-				cc.config[last]++;
+				cc[last].flip();
 			last = 0;
 		}
 	}
 	if (last)
-		cc.config[last]++;
-	cc.sum = cc.computeSum();
+		cc[last].flip();
 	return winning(cc) ? "WIN" : "LOSE";
 }
 
