@@ -92,6 +92,11 @@ struct Cache
 		return result;
 	}
 
+	Cache()
+	{
+		data.reserve(1000000);
+	}
+
 private:
 	std::unordered_map<Config, bool> data;
 } cache;
