@@ -58,6 +58,12 @@ struct Config
 				return false;
 		return true;
 	}
+
+	bool operator < (const Config &other) const
+	{
+		return std::tie(config[0], config[1], config[2], config[3], config[4])
+			< std::tie(other.config[0], other.config[1], other.config[2], other.config[3], other.config[4]);
+	}
 };
 
 namespace std
@@ -94,11 +100,11 @@ struct Cache
 
 	Cache()
 	{
-		data.reserve(1000000);
+		//data.reserve(1000000);
 	}
 
 private:
-	std::unordered_map<Config, bool> data;
+	std::map<Config, bool> data;
 } cache;
 
 bool winning(Config config)
