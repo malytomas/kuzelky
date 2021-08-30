@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS 1
+
 #include <bits/stdc++.h>
 #include <unordered_map>
 #include <array>
@@ -72,8 +74,9 @@ namespace std
 	{
 		std::size_t operator()(const Config &c) const noexcept
 		{
+			const auto &a = c.config;
 			std::hash<uint64_t> h;
-			return h(c.config[0]) ^ (h(c.config[1]) << 1) ^ (h(c.config[2]) << 2) ^ (h(c.config[3]) << 3) ^ (h(c.config[4]) << 4);
+			return h(h(h(h(a[0]) + a[1]) + a[2]) + a[3]) + a[4];
 		}
 	};
 }
@@ -100,11 +103,19 @@ struct Cache
 
 	Cache()
 	{
-		//data.reserve(1000000);
+		data.reserve(1000000);
+		{
+			Config c;
+			set(c, false); // ""
+			c.config[0] = 1;
+			set(c, true); // "I"
+			c.config[0] = 2;
+			set(c, true); // "II"
+		}
 	}
 
 private:
-	std::map<Config, bool> data;
+	std::unordered_map<Config, bool> data;
 } cache;
 
 bool winning(Config config)
@@ -115,17 +126,6 @@ bool winning(Config config)
 		cache.check(config, valid, result);
 		if (valid)
 			return result;
-	}
-
-	// check trivial winning conditions
-	if (config.config[1] == 0 && config.config[2] == 0 && config.config[3] == 0 && config[4] == 0)
-	{
-		switch (config.config[0])
-		{
-		case 0: return cache.set(config, false); // ""
-		case 1: return cache.set(config, true); // "I"
-		case 2: return cache.set(config, true); // "II"
-		}
 	}
 
 	// recurse
@@ -164,7 +164,7 @@ bool winning(Config config)
 }
 
 // stupid strings
-string isWinning(int, string config)
+string isWinning(int, const string &config)
 {
 	Config cc;
 	int last = 0;
